@@ -123,3 +123,7 @@ resource "aws_elb" "applb" {
     interval            = 5
   }
 }
+
+output "elb_dns_name" {
+  value = "${aws_elb.applb.dns_name}"
+}
