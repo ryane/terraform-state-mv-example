@@ -6,6 +6,10 @@ variable "instance_count" {
   default = 2
 }
 
+variable "docker_image" {
+  default = "nginx:1.11.5-alpine"
+}
+
 data "aws_availability_zones" "available" {
   state = "available"
 }
@@ -35,12 +39,12 @@ resource "aws_key_pair" "kp" {
   public_key = "${file(var.ssh_public_key)}"
 }
 
-data "template_file" "app_cloud_config" {
-  template = "${file("${path.module}/app_cloud_config.yml.tpl")}"
+data "template_file" "web_cloud_config" {
+  template = "${file("${path.module}/web_cloud_config.yml.tpl")}"
 
   vars {
-    app_name     = "nginx"
-    docker_image = "nginx:1.11.5-alpine"
+    web_name     = "nginx"
+    docker_image = "${var.docker_image}"
     http_port    = 8080
   }
 }
@@ -50,19 +54,19 @@ resource "aws_instance" "instance" {
   availability_zone = "${data.aws_availability_zones.available.names[0]}"
   ami               = "${data.aws_ami.coreos.image_id}"
   instance_type     = "t2.micro"
-  security_groups   = ["${aws_security_group.app.name}"]
+  security_groups   = ["${aws_security_group.web.name}"]
   key_name          = "${aws_key_pair.kp.key_name}"
-  user_data         = "${data.template_file.app_cloud_config.rendered}"
+  user_data         = "${data.template_file.web_cloud_config.rendered}"
 }
 
-resource "aws_security_group" "app" {
-  name = "app"
+resource "aws_security_group" "web" {
+  name = "web"
 
   ingress {
     from_port       = 8080
     to_port         = 8080
     protocol        = "tcp"
-    security_groups = ["${aws_security_group.applb.id}"]
+    security_groups = ["${aws_security_group.weblb.id}"]
   }
 
   ingress {
@@ -80,7 +84,7 @@ resource "aws_security_group" "app" {
   }
 }
 
-resource "aws_security_group" "applb" {
+resource "aws_security_group" "weblb" {
   name = "allow_http"
 
   ingress {
@@ -98,8 +102,8 @@ resource "aws_security_group" "applb" {
   }
 }
 
-resource "aws_elb" "applb" {
-  security_groups    = ["${aws_security_group.applb.id}"]
+resource "aws_elb" "weblb" {
+  security_groups    = ["${aws_security_group.weblb.id}"]
   instances          = ["${aws_instance.instance.*.id}"]
   availability_zones = ["${data.aws_availability_zones.available.names[0]}"]
 
@@ -120,5 +124,5 @@ resource "aws_elb" "applb" {
 }
 
 output "elb_dns_name" {
-  value = "${aws_elb.applb.dns_name}"
+  value = "${aws_elb.weblb.dns_name}"
 }

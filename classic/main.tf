@@ -11,10 +11,10 @@ provider "aws" {
   profile = "multi-tier-rails"
 }
 
-module "app" {
-  source = "./modules/app"
+module "web" {
+  source = "./modules/web"
 }
 
 output "elb_dns_name" {
-  value = "${module.app.elb_dns_name}"
+  value = "${module.web.elb_dns_name}"
 }
