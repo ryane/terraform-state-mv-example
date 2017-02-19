@@ -6,9 +6,29 @@ variable "instance_count" {
   default = 2
 }
 
-variable "availability_zone" {}
+data "aws_availability_zones" "available" {
+  state = "available"
+}
 
-variable "ami" {}
+data "aws_ami" "coreos" {
+  most_recent = true
+  owners      = ["595879546273"]
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "name"
+    values = ["CoreOS-stable-*"]
+  }
+}
 
 resource "aws_key_pair" "kp" {
   key_name   = "test-keypair"
@@ -27,8 +47,8 @@ data "template_file" "app_cloud_config" {
 
 resource "aws_instance" "instance" {
   count             = "${var.instance_count}"
-  availability_zone = "${var.availability_zone}"
-  ami               = "${var.ami}"
+  availability_zone = "${data.aws_availability_zones.available.names[0]}"
+  ami               = "${data.aws_ami.coreos.image_id}"
   instance_type     = "t2.micro"
   security_groups   = ["${aws_security_group.app.name}"]
   key_name          = "${aws_key_pair.kp.key_name}"
@@ -81,7 +101,7 @@ resource "aws_security_group" "applb" {
 resource "aws_elb" "applb" {
   security_groups    = ["${aws_security_group.applb.id}"]
   instances          = ["${aws_instance.instance.*.id}"]
-  availability_zones = ["${var.availability_zone}"]
+  availability_zones = ["${data.aws_availability_zones.available.names[0]}"]
 
   listener {
     instance_port     = 8080
